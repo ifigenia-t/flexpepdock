@@ -72,7 +72,7 @@ def arg_parser():
     return parser
 
 
-def create_init_resfile(pdb_path, chain_id):
+def create_init_resfile(pdb_path, chain_id, output_path):
     """
     Create resfile with appropriate numbering with option PIKAA (sequence of the template)
     """
@@ -100,11 +100,9 @@ def create_init_resfile(pdb_path, chain_id):
     chain_length = last_res_pose - first_res_pose + 1
     peptide = []
 
-    os.makedirs(os.path.dirname(os.path.join(OUTPUT_DATA_FOLDER, pdb_name)), exist_ok=True)
-    
-    with open(
-        "{}/{}/resfile_{}s".format(OUTPUT_DATA_FOLDER, pdb_name, pdb_name), "w"
-    ) as resf:
+    # create the output path
+    os.makedirs(output_path, exist_ok=True)
+    with open(os.path.join(output_path, "resfile_{}s".format(pdb_name)), "w") as resf:
         resf.write("NATRO\nstart\n")
         print("===> writing to results file:{}".format(resf.name))  # --- added
         for res in range(first_res_pose, last_res_pose + 1):
@@ -155,24 +153,33 @@ def create_pep_list_file(peptide, amino_acids):
 
 
 def split_and_run(
-    peptides, resfile, pdb, pdb_name, bb_min, protocol, prefix, tasks, receptor_chain_id
+    peptides,
+    resfile,
+    pdb,
+    output_path,
+    bb_min,
+    protocol,
+    prefix,
+    tasks,
+    receptor_chain_id,
 ):
     """
 
     """
-    with open("{}/{}/{}".format(OUTPUT_DATA_FOLDER, pdb_name, resfile), "r") as rf:
+    with open(os.path.join(output_path, resfile), "r") as rf:
         resf_lines = rf.readlines()
+
     for (
         pep
     ) in (
         peptides
     ):  # for each peptide there is a list of windows of length n (can be n=pep_length)
         print("==> running for peptides: {}".format(pep))
-        if not os.path.isdir(pep):
-            os.mkdir(pep)
+
+        os.makedirs(os.path.join(output_path, pep), exist_ok=True)
         run_fpb(
             pdb,
-            pdb_name,
+            output_path,
             resf_lines,
             pep,
             pep,
@@ -186,7 +193,7 @@ def split_and_run(
 
 def run_fpb(
     pdb,
-    pdb_name,
+    output_path,
     resf_lines,
     cur_dir,
     pepseq,
@@ -203,9 +210,7 @@ def run_fpb(
     home_dir = os.getcwd()
     header = resf_lines[:2]
     rf_lines = resf_lines[2:]
-    with open(
-        os.path.join(OUTPUT_DATA_FOLDER, pdb_name, cur_dir, "resfile.%s" % pepseq), "w"
-    ) as new_rf:
+    with open(os.path.join(output_path, cur_dir, "resfile.%s" % pepseq), "w") as new_rf:
         for hline in header:  # 2 lines here
             new_rf.write(hline)
         for i, line in enumerate(rf_lines):
@@ -227,26 +232,29 @@ def run_fpb(
         tasks,
     )
 
+    current_dir_path = os.path.join(output_path, cur_dir)
+
     pdbfile = pdb  # --- added
-    threaded_pdbfile = ".".join(pdb.split(".")[:-1]) + "_0001.pdb"  # --- added
+    basefilename = os.path.basename(pdb)
+    threaded_pdbfile_name = "{}_0001.pdb".format(os.path.splitext(basefilename)[0])
+    threaded_pdbfile = os.path.join(
+        current_dir_path, threaded_pdbfile_name,
+    )  # --- added
+
     resfile = os.path.abspath(
-        ".{}/{}/{}/resfile.{}".format(OUTPUT_DATA_FOLDER, pdb_name, cur_dir, pepseq)
+        os.path.join(current_dir_path, "resfile.{}".format(pepseq))
     )  # --- added
     scorefile = os.path.abspath(
-        "./{}/{}/{}/scorefile.{}".format(OUTPUT_DATA_FOLDER, pdb_name, cur_dir, pepseq)
+        os.path.join(current_dir_path, "scorefile.{}".format(pepseq))
     )  # --- added
     score = os.path.abspath(
-        ".{}/{}/{}/{}.{}.score.sc".format(
-            OUTPUT_DATA_FOLDER, pdb_name, cur_dir, pepseq, prefix
-        )
+        os.path.join(current_dir_path, "{}.{}.score.sc".format(pepseq, prefix))
     )
     fixbb_resfile_log = os.path.abspath(
-        "./{}/{}/{}/fixbb.log".format(OUTPUT_DATA_FOLDER, pdb_name, cur_dir)
+        os.path.join(current_dir_path, "fixbb.log")
     )  # --- added
     flex_pep_dock_resfile_log = os.path.abspath(
-        "./{}/{}/{}/{}.flex_pep_dock.log".format(
-            OUTPUT_DATA_FOLDER, pdb_name, cur_dir, prefix
-        )
+        os.path.join(current_dir_path, "{}.flex_pep_dock.log".format(prefix))
     )
 
     fixbb_cmd = os.path.join(ROSETTA_BIN, "fixbb.macosclangrelease")
@@ -264,9 +272,13 @@ def run_fpb(
     print(fixbb_run)
     os.system(fixbb_run)
 
+    # TODO find the proper way to move the file to the right location
+    os.rename(os.path.join(os.getcwd(), threaded_pdbfile_name), threaded_pdbfile)
+
     #
     # RUN FlexPepDocking - Minimization run
     #
+
     flex_pep_dock_cmd = os.path.join(ROSETTA_BIN, "FlexPepDocking.macosclangrelease ")
     flex_pep_dock_options = [
         "-s " + threaded_pdbfile,
@@ -275,7 +287,7 @@ def run_fpb(
         "-ex2aro",
         "-flexPepDockingMinimizeOnly",
         "-use_input_sc",
-        "-out:prefix {}_".format(pepseq),
+        "-out:prefix {}_".format(os.path.join(current_dir_path, pepseq)),
         "-scorefile {}".format(score),
     ]
     flex_pep_dock_run = (
@@ -296,11 +308,15 @@ def main():
     pdb = args.pdb
     pdb_path = os.path.abspath(pdb)
     pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
+    output_path = os.path.join(os.getcwd(), OUTPUT_DATA_FOLDER, pdb_name)
+
     # chain_num = int(args.chain) # Default = 2
     chain_id = args.chain_id
     receptor_chain_id = args.receptor_chain_id
 
-    temp_length, resfile_name, peptide, peptide_seq = create_init_resfile(pdb, chain_id)
+    temp_length, resfile_name, peptide, peptide_seq = create_init_resfile(
+        pdb, chain_id, output_path
+    )
 
     print(
         "==> temp_lenght: {} resfile_name: {} structure_peptide: {}".format(
@@ -347,9 +363,9 @@ def main():
         )
         amino_acids = AA_LIST
 
-    peptides = create_pep_list_file(peptide_seq, AA_LIST)
+    peptides = create_pep_list_file(peptide_seq, amino_acids)
 
-    # print(args.peplist)
+    print(peptides)
 
     if args.single_peptide is not None:
         peptide = args.single_peptide
@@ -361,26 +377,29 @@ def main():
         print("===> using peptide file {}".format(pep_list))
         peptides = read_peptides_file(pep_list)
 
-    split_and_run(
-        peptides,
-        resfile_name,
-        pdb_path,
-        pdb_name,
-        bb_min,
-        protocol,
-        prefix,
-        tasks,
-        receptor_chain_id,
-    )
+    # split_and_run(
+    #     peptides,
+    #     resfile_name,
+    #     pdb_path,
+    #     output_path,
+    #     bb_min,
+    #     protocol,
+    #     prefix,
+    #     tasks,
+    #     receptor_chain_id,
+    # )
 
-    tbt_input_data = combine_score_files(peptides, pdb_name)
+    tbt_input_data = combine_score_files(peptides, output_path)
 
-    create_tbt_file(peptide_seq, tbt_input_data, amino_acids)
+    create_tbt_file(peptide_seq, tbt_input_data, amino_acids, output_path)
 
 
 # reads a score file and returns the variables we need
-def parse_score_file(peptide):
-    scorefile_path = "./{}/{}.min.score.sc".format(peptide, peptide)
+def parse_score_file(peptide, output_path):
+    scorefile_path = os.path.join(
+        output_path, peptide, "{}.min.score.sc".format(peptide)
+    )
+
     with open(scorefile_path, "r") as f:
         line_counter = 0
         scores = {}
@@ -402,15 +421,15 @@ def parse_score_file(peptide):
 
 # iterates over all the peptides and appends the output to one combined score file
 # +++ and returns the input for the next file
-def combine_score_files(peptides, pdb_name):
+def combine_score_files(peptides, output_path):
     tbt_reference = {}
 
     # create a new file
-    with open("{}/{}/finalScores.txt".format(OUTPUT_DATA_FOLDER, pdb_name), "wt") as f:
+    with open(os.path.join(output_path, "finalScores.txt"), "wt") as f:
         f.write("Peptide       total_score     I_sc     pep_sc     reweighted_sc\n")
         # f.write("   {}")
         for peptide in peptides:
-            scores = parse_score_file(peptide)
+            scores = parse_score_file(peptide, output_path)
             f.write(
                 "{}    {}    {}    {}   {}\n".format(
                     peptide,
@@ -427,21 +446,23 @@ def combine_score_files(peptides, pdb_name):
     return tbt_reference
 
 
-def create_tbt_file(base_peptide, tbt_input_data, amino_acids):
+def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path):
     results = []
-
-    print("\t")
-    for i in range(0, len(base_peptide)):
-        print("{}\t".format(base_peptide[i]), end="")
-    print()
-
-    for aa in amino_acids:
-        print(aa, end=" ")
+    with open(os.path.join(output_path, "reweightedScores.tbt"), "wt") as f:
+        f.write("\t")
         for i in range(0, len(base_peptide)):
-            if base_peptide[i] != aa:
-                new_peptide = base_peptide[:i] + aa + base_peptide[i + 1 :]
-                print("{}\t".format(tbt_input_data[new_peptide]), end="")
-        print()
+            f.write("{}\t".format(base_peptide[i]))
+            print("{}\t".format(base_peptide[i]), end="")
+
+        for aa in amino_acids:
+            f.write("\n{}\t".format(aa))
+            print(aa, end=" ")
+            for i in range(0, len(base_peptide)):
+                if base_peptide[i] != aa:
+                    new_peptide = base_peptide[:i] + aa + base_peptide[i + 1 :]
+                    f.write("{}\t".format(tbt_input_data[new_peptide]))
+                    print("{}\t".format(tbt_input_data[new_peptide]), end="")
+            print()
 
 
 if __name__ == "__main__":
