@@ -377,17 +377,17 @@ def main():
         print("===> using peptide file {}".format(pep_list))
         peptides = read_peptides_file(pep_list)
 
-    # split_and_run(
-    #     peptides,
-    #     resfile_name,
-    #     pdb_path,
-    #     output_path,
-    #     bb_min,
-    #     protocol,
-    #     prefix,
-    #     tasks,
-    #     receptor_chain_id,
-    # )
+    split_and_run(
+        peptides,
+        resfile_name,
+        pdb_path,
+        output_path,
+        bb_min,
+        protocol,
+        prefix,
+        tasks,
+        receptor_chain_id,
+    )
 
     tbt_input_data = combine_score_files(peptides, output_path)
 
@@ -447,9 +447,9 @@ def combine_score_files(peptides, output_path):
 
 
 def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path):
-    results = []
     with open(os.path.join(output_path, "reweightedScores.tbt"), "wt") as f:
         f.write("\t")
+        print("\n")
         for i in range(0, len(base_peptide)):
             f.write("{}\t".format(base_peptide[i]))
             print("{}\t".format(base_peptide[i]), end="")
@@ -458,10 +458,9 @@ def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path):
             f.write("\n{}\t".format(aa))
             print(aa, end=" ")
             for i in range(0, len(base_peptide)):
-                if base_peptide[i] != aa:
-                    new_peptide = base_peptide[:i] + aa + base_peptide[i + 1 :]
-                    f.write("{}\t".format(tbt_input_data[new_peptide]))
-                    print("{}\t".format(tbt_input_data[new_peptide]), end="")
+                new_peptide = base_peptide[:i] + aa + base_peptide[i + 1 :]
+                f.write("{}\t".format(tbt_input_data[new_peptide]))
+                print("{}\t".format(tbt_input_data[new_peptide]), end="")
             print()
 
 
