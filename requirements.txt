@@ -4,4 +4,5 @@ idna==2.9
 pyrosetta==2020.2+release.22ef835b4a2
 requests==2.23.0
 urllib3==1.25.8
-virtualenv==16.7.9
+biopython==1.76
+pandas==1.0.2
