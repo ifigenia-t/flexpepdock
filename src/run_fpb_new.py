@@ -3,6 +3,8 @@ from pyrosetta import *
 from pyrosetta.rosetta import *
 import os
 import argparse
+from Bio.PDB import PDBList
+import pandas as pd
 
 ROSETTA_BIN = (
     "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin"
@@ -34,12 +36,15 @@ AA_LIST = [
 ]
 ALA = "A"
 OUTPUT_DATA_FOLDER = "output_data"
+INPUT_DATA_FOLDER = "input_data"
+pdbl = PDBList(verbose=False)
 
 
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdb", "-p", dest="pdb")
     parser.add_argument("--chain_num", "-c", dest="chain", default=2)
+    parser.add_argument("--pdb_id", "-pid", dest="pdb_id")
     # Added peptide chain ID option
     parser.add_argument("--chain_id", "-cid", dest="chain_id")
     # Added receptor chain ID option
@@ -72,6 +77,14 @@ def arg_parser():
     return parser
 
 
+def download_pdb_file(pdb_id, input_path):
+    # Download pdb file from PDB
+    
+    return pdbl.retrieve_pdb_file(
+        pdb_code=pdb_id, pdir=input_path, file_format="pdb"), #os.rename(r "pdb{}.ent".format(pdb_id), r "{}.pdb".format(pdb_id))
+    
+
+    
 def create_init_resfile(pdb_path, chain_id, output_path):
     """
     Create resfile with appropriate numbering with option PIKAA (sequence of the template)
@@ -272,7 +285,7 @@ def run_fpb(
     print(fixbb_run)
     os.system(fixbb_run)
 
-    # TODO find the proper way to move the file to the right location
+    # the proper way to move the file to the right location
     os.rename(os.path.join(os.getcwd(), threaded_pdbfile_name), threaded_pdbfile)
 
     #
@@ -285,11 +298,16 @@ def run_fpb(
         "-database " + ROSETTA_DB,
         "-ex1",
         "-ex2aro",
-        "-flexPepDockingMinimizeOnly",
+        protocol,
+        bb_min,
+        # "-flexPepDockingMinimizeOnly",
+        "-flexPepDocking:flexpep_score_only",
         "-use_input_sc",
         "-out:prefix {}_".format(os.path.join(current_dir_path, pepseq)),
         "-scorefile {}".format(score),
     ]
+
+
     flex_pep_dock_run = (
         flex_pep_dock_cmd
         + " "
@@ -306,10 +324,28 @@ def run_fpb(
 def main():
     args = arg_parser().parse_args()
     pdb = args.pdb
-    pdb_path = os.path.abspath(pdb)
-    pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
-    output_path = os.path.join(os.getcwd(), OUTPUT_DATA_FOLDER, pdb_name)
+    pdb_id = args.pdb_id
 
+    if pdb is not None:
+        pdb_path = os.path.abspath(pdb)
+        pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
+        
+
+    
+    if pdb_id is not None:
+        input_path = os.path.join(os.getcwd(), INPUT_DATA_FOLDER, pdb_id)
+        pdb = download_pdb_file(pdb_id, input_path)
+        pdb_path = os.path.abspath(pdb)
+        pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
+        download_pdb_file(pdb_id, input_path)
+        print(pdb_id)
+
+
+    if pdb_id is None and pdb is None:
+        exit(-1)
+
+    output_path = os.path.join(os.getcwd(), OUTPUT_DATA_FOLDER, pdb_name)
+    print("the output path is: ", output_path)
     # chain_num = int(args.chain) # Default = 2
     chain_id = args.chain_id
     receptor_chain_id = args.receptor_chain_id
@@ -323,6 +359,10 @@ def main():
             temp_length, resfile_name, peptide
         )
     )
+
+    print(pdb)
+    print("Running for structure: ", pdb_name)
+    
 
     if chain_id is None:
         print("chain ID is not defined")
@@ -391,7 +431,12 @@ def main():
 
     tbt_input_data = combine_score_files(peptides, output_path)
 
-    create_tbt_file(peptide_seq, tbt_input_data, amino_acids, output_path)
+    create_tbt_file(peptide_seq, tbt_input_data, amino_acids, output_path, pdb_name)
+
+    
+    #os.rename(r'./input_data/pdb{}.ent'.format(pdb_id), r'./input_data/{}.pdb'.format(pdb_id))
+    # os.rename(os.path.join(input_path,"pdb{}.ent".format(pdb_id), os.path.join(input_path,pdb_id,".pdb"))
+
 
 
 # reads a score file and returns the variables we need
@@ -446,8 +491,10 @@ def combine_score_files(peptides, output_path):
     return tbt_reference
 
 
-def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path):
-    with open(os.path.join(output_path, "reweightedScores.tbt"), "wt") as f:
+def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path, pdb_name):
+    tbt_file = os.path.join(output_path, "reweightedScores_{}.tbt".format(pdb_name))
+
+    with open(tbt_file, "wt") as f:
         f.write("\t")
         print("\n")
         for i in range(0, len(base_peptide)):
@@ -458,10 +505,35 @@ def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path):
             f.write("\n{}\t".format(aa))
             print(aa, end=" ")
             for i in range(0, len(base_peptide)):
-                new_peptide = base_peptide[:i] + aa + base_peptide[i + 1 :]
+                new_peptide = base_peptide[:i] + aa + base_peptide[i + 1:]
                 f.write("{}\t".format(tbt_input_data[new_peptide]))
                 print("{}\t".format(tbt_input_data[new_peptide]), end="")
             print()
+        
+        f.close()
+        
+        normalize_all(pdb_name,output_path, tbt_file)
+
+
+def normalize_all(pdb_name, output_path, tbt_file_path):
+    '''
+    Creates PANDAS dataframes from the output scores files and normalizes them.
+    It generates new file with the normalized scores.
+    '''
+    df = pd.read_csv(tbt_file_path, sep="\t")
+    index_dic={}
+    for i in range(0,len(AA_LIST)):
+        index_dic[i] = AA_LIST[i]
+    df.rename(index=index_dic,inplace=True)
+    del df["Unnamed: 0"]
+    del df["Unnamed: 12"]
+    #df.mean(axis=0)
+    print(df)
+    normalized_df=(df/df.mean())-1
+    normalized_df=normalized_df.round(decimals=5)
+    print(normalized_df)
+    normalized_df.to_csv(os.path.join(output_path,'normalised_{}_all.csv'.format(pdb_name)))
+            
 
 
 if __name__ == "__main__":
