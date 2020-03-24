@@ -5,13 +5,12 @@ import os
 import argparse
 from Bio.PDB import PDBList
 import pandas as pd
+from statistics import mean
 
 ROSETTA_BIN = (
-    "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin"
-)
+    "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin")
 ROSETTA_DB = (
-    "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/database"
-)
+    "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/database")
 AA_LIST = [
     "A",
     "C",
@@ -68,12 +67,13 @@ def arg_parser():
     )
     # Added single peptide input option
     parser.add_argument("--peptide", "-sp", dest="single_peptide")
+    # FlexPepDock refinement argument
     parser.add_argument(
         "--refinement", "-r", dest="refine", action="store_true", default=False
     )
+    # Minimization including receptor backbone argument
     parser.add_argument(
-        "--bb_min", "-b", dest="bbmin", action="store_true", default=False
-    )
+        "--bb_min", "-b", dest="bbmin", action="store_true", default=False)
     return parser
 
 
@@ -429,7 +429,7 @@ def main():
         receptor_chain_id,
     )
 
-    tbt_input_data = combine_score_files(peptides, output_path)
+    tbt_input_data = combine_score_files(peptides, output_path, prefix)
 
     create_tbt_file(peptide_seq, tbt_input_data, amino_acids, output_path, pdb_name)
 
@@ -440,9 +440,9 @@ def main():
 
 
 # reads a score file and returns the variables we need
-def parse_score_file(peptide, output_path):
+def parse_score_file(peptide, output_path,prefix):
     scorefile_path = os.path.join(
-        output_path, peptide, "{}.min.score.sc".format(peptide)
+        output_path, peptide, "{}.{}.score.sc".format(peptide, prefix)
     )
 
     with open(scorefile_path, "r") as f:
@@ -459,14 +459,19 @@ def parse_score_file(peptide, output_path):
                 continue
             values = line.split()[1:]
             for i in range(0, len(values) - 1):
-                scores[headers[i]] = values[i]
-
+                # check if key exists and value is list
+                if headers[i] not in scores:
+                # if not create empty list
+                # now append
+                    scores[headers[i]] = []
+                # scores[headers[i]] = values[i]
+                scores[headers[i]].append(float(values[i]))
     return scores
 
 
 # iterates over all the peptides and appends the output to one combined score file
 # +++ and returns the input for the next file
-def combine_score_files(peptides, output_path):
+def combine_score_files(peptides, output_path, prefix):
     tbt_reference = {}
 
     # create a new file
@@ -474,7 +479,7 @@ def combine_score_files(peptides, output_path):
         f.write("Peptide       total_score     I_sc     pep_sc     reweighted_sc\n")
         # f.write("   {}")
         for peptide in peptides:
-            scores = parse_score_file(peptide, output_path)
+            scores = parse_score_file(peptide, output_path, prefix)
             f.write(
                 "{}    {}    {}    {}   {}\n".format(
                     peptide,
@@ -486,7 +491,8 @@ def combine_score_files(peptides, output_path):
                     ],  # Reweighted Score  (sum(total_score+peptide_score+interface_score))
                 )
             )
-            tbt_reference[peptide] = scores["reweighted_sc"]
+            tbt_reference[peptide] = mean(scores["reweighted_sc"])
+            print(tbt_reference)
 
     return tbt_reference
 
