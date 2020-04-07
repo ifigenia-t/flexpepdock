@@ -6,6 +6,9 @@ ARG ROSETTA_PASS=1234
 ARG PYROSETTA_USER=user
 ARG PYROSETTA_PASS=1234
 
+ENV ROSETTA_BIN=/flex/rosetta_src_2019.35.60890_bundle/main/source/bin
+ENV ROSETTA_DB=/flex/rosetta_src_2019.35.60890_bundle/main/database
+
 RUN mkdir -p /flex/app
 
 # Download and Compile Rosetta

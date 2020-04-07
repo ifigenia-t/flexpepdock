@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-from pyrosetta import *
-from pyrosetta.rosetta import *
-import os
 import argparse
-from Bio.PDB import PDBList
-import pandas as pd
+import os
 from statistics import mean
 
-ROSETTA_BIN = (
-    "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin")
-ROSETTA_DB = (
-    "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/database")
+import pandas as pd
+from Bio.PDB import PDBList
+from pyrosetta import *
+from pyrosetta.rosetta import *
+
+# Read config from environment variables
+ROSETTA_BIN=os.environ.get("ROSETTA_BIN")
+ROSETTA_DB=os.environ.get("ROSETTA_DB")
+
+if ROSETTA_BIN==None or ROSETTA_DB==None:
+    print("Rosetta not configured in the environment")
+    exit(-1)
+    
+# ROSETTA_BIN = (
+#     "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin")
+# ROSETTA_DB = (
+#     "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/database")
 AA_LIST = [
     "A",
     "C",
@@ -365,7 +374,7 @@ def main():
 
     if chain_id is None:
         print("chain ID is not defined")
-        sys.exit(-1)
+        exit(-1)
 
     if args.refine:
         protocol = "-flexPepDocking:pep_refine -nstruct 100"
