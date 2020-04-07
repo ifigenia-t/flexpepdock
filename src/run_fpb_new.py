@@ -9,13 +9,13 @@ from pyrosetta import *
 from pyrosetta.rosetta import *
 
 # Read config from environment variables
-ROSETTA_BIN=os.environ.get("ROSETTA_BIN")
-ROSETTA_DB=os.environ.get("ROSETTA_DB")
+ROSETTA_BIN = os.environ.get("ROSETTA_BIN")
+ROSETTA_DB = os.environ.get("ROSETTA_DB")
 
-if ROSETTA_BIN==None or ROSETTA_DB==None:
+if ROSETTA_BIN == None or ROSETTA_DB == None:
     print("Rosetta not configured in the environment")
     exit(-1)
-    
+
 # ROSETTA_BIN = (
 #     "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin")
 # ROSETTA_DB = (
@@ -82,18 +82,24 @@ def arg_parser():
     )
     # Minimization including receptor backbone argument
     parser.add_argument(
-        "--bb_min", "-b", dest="bbmin", action="store_true", default=False)
+        "--bb_min", "-b", dest="bbmin", action="store_true", default=False
+    )
     return parser
 
 
 def download_pdb_file(pdb_id, input_path):
     # Download pdb file from PDB
-    
-    return pdbl.retrieve_pdb_file(
-        pdb_code=pdb_id, pdir=input_path, file_format="pdb"), #os.rename(r "pdb{}.ent".format(pdb_id), r "{}.pdb".format(pdb_id))
-    
+    pdb_file = pdbl.retrieve_pdb_file(
+        pdb_code=pdb_id, pdir=input_path, file_format="pdb"
+    )
 
-    
+    new_name = os.path.join(input_path, "{}.pdb".format(pdb_id))
+    os.rename(pdb_file, new_name)
+
+    return new_name
+
+
+
 def create_init_resfile(pdb_path, chain_id, output_path):
     """
     Create resfile with appropriate numbering with option PIKAA (sequence of the template)
@@ -316,7 +322,6 @@ def run_fpb(
         "-scorefile {}".format(score),
     ]
 
-
     flex_pep_dock_run = (
         flex_pep_dock_cmd
         + " "
@@ -339,15 +344,13 @@ def main():
         pdb_path = os.path.abspath(pdb)
         pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
 
-
     if pdb_id is not None:
-        input_path = os.path.join(os.getcwd(), INPUT_DATA_FOLDER, pdb_id)
+        input_path = os.path.join(os.getcwd(), INPUT_DATA_FOLDER)
         pdb = download_pdb_file(pdb_id, input_path)
         pdb_path = os.path.abspath(pdb)
         pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
         download_pdb_file(pdb_id, input_path)
         print(pdb_id)
-
 
     if pdb_id is None and pdb is None:
         exit(-1)
@@ -370,7 +373,6 @@ def main():
 
     print(pdb)
     print("Running for structure: ", pdb_name)
-    
 
     if chain_id is None:
         print("chain ID is not defined")
@@ -441,14 +443,9 @@ def main():
 
     create_tbt_file(peptide_seq, tbt_input_data, amino_acids, output_path, pdb_name)
 
-    
-    #os.rename(r'./input_data/pdb{}.ent'.format(pdb_id), r'./input_data/{}.pdb'.format(pdb_id))
-    # os.rename(os.path.join(input_path,"pdb{}.ent".format(pdb_id), os.path.join(input_path,pdb_id,".pdb"))
-
-
 
 # reads a score file and returns the variables we need
-def parse_score_file(peptide, output_path,prefix):
+def parse_score_file(peptide, output_path, prefix):
     scorefile_path = os.path.join(
         output_path, peptide, "{}.{}.score.sc".format(peptide, prefix)
     )
@@ -469,8 +466,8 @@ def parse_score_file(peptide, output_path,prefix):
             for i in range(0, len(values) - 1):
                 # check if key exists and value is list
                 if headers[i] not in scores:
-                # if not create empty list
-                # now append
+                    # if not create empty list
+                    # now append
                     scores[headers[i]] = []
                 # scores[headers[i]] = values[i]
                 scores[headers[i]].append(float(values[i]))
@@ -478,7 +475,7 @@ def parse_score_file(peptide, output_path,prefix):
 
 
 # iterates over all the peptides and appends the output to one combined score file
-# +++ and returns the input for the next file
+# and returns the input for the next file
 def combine_score_files(peptides, output_path, prefix):
     tbt_reference = {}
 
@@ -518,35 +515,36 @@ def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path, pdb_
             f.write("\n{}\t".format(aa))
             print(aa, end=" ")
             for i in range(0, len(base_peptide)):
-                new_peptide = base_peptide[:i] + aa + base_peptide[i + 1:]
+                new_peptide = base_peptide[:i] + aa + base_peptide[i + 1 :]
                 f.write("{}\t".format(tbt_input_data[new_peptide]))
                 print("{}\t".format(tbt_input_data[new_peptide]), end="")
             print()
-        
+
         f.close()
-        
-        normalize_all(pdb_name,output_path, tbt_file)
+
+        normalize_all(pdb_name, output_path, tbt_file)
 
 
 def normalize_all(pdb_name, output_path, tbt_file_path):
-    '''
+    """
     Creates PANDAS dataframes from the output scores files and normalizes them.
     It generates new file with the normalized scores.
-    '''
+    """
     df = pd.read_csv(tbt_file_path, sep="\t")
-    index_dic={}
-    for i in range(0,len(AA_LIST)):
+    index_dic = {}
+    for i in range(0, len(AA_LIST)):
         index_dic[i] = AA_LIST[i]
-    df.rename(index=index_dic,inplace=True)
+    df.rename(index=index_dic, inplace=True)
     del df["Unnamed: 0"]
     del df["Unnamed: 12"]
-    #df.mean(axis=0)
+    # df.mean(axis=0)
     print(df)
-    normalized_df=(df/df.mean())-1
-    normalized_df=normalized_df.round(decimals=5)
+    normalized_df = (df / df.mean()) - 1
+    normalized_df = normalized_df.round(decimals=5)
     print(normalized_df)
-    normalized_df.to_csv(os.path.join(output_path,'normalised_{}_all.csv'.format(pdb_name)))
-            
+    normalized_df.to_csv(
+        os.path.join(output_path, "normalised_{}_all.csv".format(pdb_name))
+    )
 
 
 if __name__ == "__main__":
