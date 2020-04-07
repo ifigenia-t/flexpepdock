@@ -12,7 +12,7 @@ RUN mkdir -p /flex/app
 WORKDIR /flex
 RUN curl -f -o rosetta.tar.gz  -u ${ROSETTA_USER}:${ROSETTA_PASS} https://www.rosettacommons.org/downloads/academic/3.11/rosetta_src_3.11_bundle.tgz
 RUN tar xvf rosetta.tar.gz
-RUN rm rosetta_src_3.11_bundle.tgz
+RUN rm rosetta.tar.gz
 
 WORKDIR /flex/rosetta_src_2019.35.60890_bundle/main/source
 
