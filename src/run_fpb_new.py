@@ -329,9 +329,8 @@ def main():
     if pdb is not None:
         pdb_path = os.path.abspath(pdb)
         pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
-        
 
-    
+
     if pdb_id is not None:
         input_path = os.path.join(os.getcwd(), INPUT_DATA_FOLDER, pdb_id)
         pdb = download_pdb_file(pdb_id, input_path)
@@ -492,7 +491,6 @@ def combine_score_files(peptides, output_path, prefix):
                 )
             )
             tbt_reference[peptide] = mean(scores["reweighted_sc"])
-            print(tbt_reference)
 
     return tbt_reference
 
