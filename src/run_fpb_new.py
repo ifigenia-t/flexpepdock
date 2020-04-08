@@ -99,7 +99,6 @@ def download_pdb_file(pdb_id, input_path):
     return new_name
 
 
-
 def create_init_resfile(pdb_path, chain_id, output_path):
     """
     Create resfile with appropriate numbering with option PIKAA (sequence of the template)
@@ -441,7 +440,12 @@ def main():
 
     tbt_input_data = combine_score_files(peptides, output_path, prefix)
 
-    create_tbt_file(peptide_seq, tbt_input_data, amino_acids, output_path, pdb_name)
+    tbt_file = create_tbt_file(
+        peptide_seq, tbt_input_data, amino_acids, output_path, pdb_name
+    )
+
+    if args.all_by_all_list is True:
+        normalize_all(pdb_name, output_path, tbt_file, peptide_seq)
 
 
 # reads a score file and returns the variables we need
@@ -522,10 +526,10 @@ def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path, pdb_
 
         f.close()
 
-        normalize_all(pdb_name, output_path, tbt_file)
+    return tbt_file
 
 
-def normalize_all(pdb_name, output_path, tbt_file_path):
+def normalize_all(pdb_name, output_path, tbt_file_path, pep):
     """
     Creates PANDAS dataframes from the output scores files and normalizes them.
     It generates new file with the normalized scores.
@@ -536,7 +540,8 @@ def normalize_all(pdb_name, output_path, tbt_file_path):
         index_dic[i] = AA_LIST[i]
     df.rename(index=index_dic, inplace=True)
     del df["Unnamed: 0"]
-    del df["Unnamed: 12"]
+    del_row = len(pep) + 1
+    del df["Unnamed: {}".format(del_row)]
     # df.mean(axis=0)
     print(df)
     normalized_df = (df / df.mean()) - 1
