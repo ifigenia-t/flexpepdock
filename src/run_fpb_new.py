@@ -2,6 +2,7 @@
 import argparse
 import os
 import platform
+import shutil
 from statistics import mean
 
 import pandas as pd
@@ -100,7 +101,7 @@ def download_pdb_file(pdb_id, input_path):
     )
 
     new_name = os.path.join(input_path, "{}.pdb".format(pdb_id))
-    os.rename(pdb_file, new_name)
+    shutil.move(pdb_file, new_name)
 
     return new_name
 
@@ -306,13 +307,15 @@ def run_fpb(
     os.system(fixbb_run)
 
     # the proper way to move the file to the right location
-    os.rename(os.path.join(os.getcwd(), threaded_pdbfile_name), threaded_pdbfile)
+    shutil.move(os.path.join(os.getcwd(), threaded_pdbfile_name), threaded_pdbfile)
 
     #
     # RUN FlexPepDocking - Minimization run
     #
 
-    flex_pep_dock_cmd = os.path.join(ROSETTA_BIN, "FlexPepDocking.{} ".format(ROSETTA_ENV))
+    flex_pep_dock_cmd = os.path.join(
+        ROSETTA_BIN, "FlexPepDocking.{} ".format(ROSETTA_ENV)
+    )
     flex_pep_dock_options = [
         "-s " + threaded_pdbfile,
         "-database " + ROSETTA_DB,
