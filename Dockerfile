@@ -8,6 +8,7 @@ ARG PYROSETTA_PASS=1234
 
 ENV ROSETTA_BIN=/flex/rosetta_src_2019.35.60890_bundle/main/source/bin
 ENV ROSETTA_DB=/flex/rosetta_src_2019.35.60890_bundle/main/database
+ENV PYTHONUNBUFFERED definitely
 
 RUN mkdir -p /flex/app
 
