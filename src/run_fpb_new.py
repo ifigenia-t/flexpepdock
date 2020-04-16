@@ -96,9 +96,13 @@ def arg_parser():
 
 def download_pdb_file(pdb_id, input_path):
     # Download pdb file from PDB
-    pdb_file = pdbl.retrieve_pdb_file(
-        pdb_code=pdb_id, pdir=input_path, file_format="pdb"
-    )
+    try:
+        pdb_file = pdbl.retrieve_pdb_file(
+            pdb_code=pdb_id, pdir=input_path, file_format="pdb"
+        )
+    except Exception as e:
+        print("Failed to download file, with error: {}".format(e))
+        exit(-1)
 
     new_name = os.path.join(input_path, "{}.pdb".format(pdb_id))
     shutil.move(pdb_file, new_name)
@@ -160,18 +164,6 @@ def read_peptides_file(plist):
     ) as peps:  # list of different peptides (substrates) from the file
         peptides = [p.strip() for p in peps.readlines()]
     return peptides
-
-
-# # create the peptide list from one peptide
-# def create_pep_list_file(peptide, amino_acid):
-#     # Alanine Scanning
-#     alanine_list = []
-#     alanine_list.append(peptide)
-#     for aa in range(0, len(peptide)):
-#         if peptide[aa] != amino_acid:
-#             new_peptide = peptide[:aa] + amino_acid + peptide[aa + 1 :]
-#             alanine_list.append(new_peptide)
-#     return alanine_list
 
 
 def create_pep_list_file(peptide, amino_acids):
@@ -357,7 +349,6 @@ def main():
         pdb = download_pdb_file(pdb_id, input_path)
         pdb_path = os.path.abspath(pdb)
         pdb_name = os.path.splitext(os.path.basename(pdb_path))[0]
-        download_pdb_file(pdb_id, input_path)
         print(pdb_id)
 
     if pdb_id is None and pdb is None:
@@ -369,10 +360,14 @@ def main():
     chain_id = args.chain_id
     receptor_chain_id = args.receptor_chain_id
 
-    temp_length, resfile_name, peptide, peptide_seq = create_init_resfile(
-        pdb, chain_id, output_path
-    )
-
+    try:
+        temp_length, resfile_name, peptide, peptide_seq = create_init_resfile(
+            pdb, chain_id, output_path
+        )
+    except Exception as e:
+        print("Failed to create init file, with error: {}".format(e))
+        exit(-1)
+    
     print(
         "==> temp_lenght: {} resfile_name: {} structure_peptide: {}".format(
             temp_length, resfile_name, peptide
