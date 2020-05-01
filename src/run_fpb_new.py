@@ -23,10 +23,7 @@ if ROSETTA_BIN == None or ROSETTA_DB == None:
     print("Rosetta not configured in the environment")
     exit(-1)
 
-# ROSETTA_BIN = (
-#     "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/source/bin")
-# ROSETTA_DB = (
-#     "/Users/itsitsa/Downloads/rosetta_bin_mac_2019.35.60890_bundle/main/database")
+
 AA_LIST = [
     "A",
     "C",
@@ -167,15 +164,21 @@ def read_peptides_file(plist):
 
 
 def create_pep_list_file(peptide, amino_acids):
-    # All by All Scanning
-    all_by_all_list = []
-    all_by_all_list.append(peptide)
+    '''
+    Creates and returns a list with either alanine or all by all scanning 
+    from the original peptide
+    '''
+    new_list = []
+    alanine_peptide = "A" * len(peptide)
+    new_list.append(peptide)
+    new_list.append(alanine_peptide)
+    
     for i in amino_acids:
         for aa in range(0, len(peptide)):
             if peptide[aa] != i:
                 new_peptide_all = peptide[:aa] + i + peptide[aa + 1 :]
-                all_by_all_list.append(new_peptide_all)
-    return all_by_all_list
+                new_list.append(new_peptide_all)
+    return new_list, alanine_peptide
 
 
 def split_and_run(
@@ -392,8 +395,10 @@ def main():
 
     if args.bbmin:
         bb_min = "-min_receptor_bb"
+        minfix = "bbmin"
     else:
         bb_min = ""
+        minfix = ""
 
     peptides = []
     amino_acids = []
@@ -416,7 +421,7 @@ def main():
         )
         amino_acids = AA_LIST
 
-    peptides = create_pep_list_file(peptide_seq, amino_acids)
+    peptides, alanine_peptide = create_pep_list_file(peptide_seq, amino_acids)
 
     print(peptides)
 
@@ -449,7 +454,9 @@ def main():
     )
 
     if args.all_by_all_list is True:
-        normalize_all(pdb_name, output_path, tbt_file, peptide_seq)
+        normalize_all(pdb_name, output_path, tbt_file, 
+        peptide_seq, prefix, minfix,
+        tbt_input_data, alanine_peptide)
 
 
 # reads a score file and returns the variables we need
@@ -533,7 +540,8 @@ def create_tbt_file(base_peptide, tbt_input_data, amino_acids, output_path, pdb_
     return tbt_file
 
 
-def normalize_all(pdb_name, output_path, tbt_file_path, pep):
+def normalize_all(pdb_name, output_path, tbt_file_path, pep, prefix, minfix,
+    tbt_input_data, alanine_peptide):
     """
     Creates PANDAS dataframes from the output scores files and normalizes them.
     It generates new file with the normalized scores.
@@ -548,13 +556,22 @@ def normalize_all(pdb_name, output_path, tbt_file_path, pep):
     del df["Unnamed: {}".format(del_row)]
     # df.mean(axis=0)
     print(df)
-    normalized_df = (df / df.mean()) - 1
+    # normalized_df = (df / df.mean()) - 1
+    normalized_df = normalize_calc(pep, tbt_input_data, alanine_peptide, df)
     normalized_df = normalized_df.round(decimals=5)
     print(normalized_df)
     normalized_df.to_csv(
-        os.path.join(output_path, "normalised_{}_all.csv".format(pdb_name))
+        os.path.join(output_path, "normalised_{}_all_{}_{}.csv".format(
+            pdb_name, minfix, prefix ))
     )
 
+def normalize_calc(base_peptide, tbt_input_data, alanine_peptide, pep_score):
+    ala_score = tbt_input_data[alanine_peptide]
+    base_score = tbt_input_data[base_peptide]
+    
+    # print("pep_score {} alaaaaa {} baseeee {}".format(pep_score, ala_score, base_score))
+
+    return (pep_score - ala_score)/(base_score -ala_score)
 
 if __name__ == "__main__":
     pyrosetta.init()
