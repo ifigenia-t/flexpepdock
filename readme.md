@@ -37,10 +37,61 @@ python3 ./run_fpb.py -p 3twr_clean.pdb -l test_peptide.txt -c 8
 
 ```
 
-brew install slurm
+
+# Running the FlexPepDock Protocol
+
+
+# Input Parameters
+
+```
+The program supports the following modes:
+-   	Input Parameters:
+o   Local .pdb file.
+o   PDB ID, with which the relevant structure can be downloaded from the Protein Data Bank (https://www.rcsb.org/).
+o   Number of the peptide and receptor chains.
+o   Sequence of the peptide.
+-   	Peptide Lists Parameters:
+o   List of different peptides.
+o   Mode of mutation we want to test so that respective peptide lists can be made.
+§  Alanine Scanning: Mutation of every residue in the peptide in each position, to an alanine amino acid.
+§  All by All Scanning: Mutation of every residue of the peptide in each position by all the other standard amino acids.
+-   	Running Parameters:
+o   Minimization including receptor backbone argument that improves the model’s accuracy.
+o   Refinement that allows the refinement of coarse peptide-protein models to near-native accuracy.
+o   Both Minimization and Refinement parameters
+
+````
+
+# Workflow 
+
+```
+These are the basic steps of the FlexPepDock Workflow:
+PDB file is downloaded or located and a list of mutated peptides is created from the original peptide depending on mutation mode.
+For each peptide in the list:
+The peptide is threaded onto the template peptide backbone by using the fixbb design from the Rosetta algorithms (Leaver-Fay et al., 2011).
+The threaded structure is optimized by using the FlexPepDock protocols by running either the minimization or/and the refinement.
+We repeat the refinement and/or minimization protocols, according to the arguments, 5 or 100 times.
+Create the score file.
+For every model the reweighted score is calculated as following:
+Reweighted score = Total score + Peptide score + Interface score
+Where:
+Total score = the total score of the complex
+Peptide score = the internal energy of the peptide
+Interface score = the sum of the energy contributions of the interface residues from the peptide and the receptor
+ 
+ 
+Normalise the PSSM by: (pep_score - ala_score) / (base_score - ala_score)
+                                	where: pep_score the positional score for each peptide
+                                            	ala_score: the score of a peptide made entirely of alanines with length as the original peptide
+                                            	base_score: the score of the original peptide
+5. 	Export the PSSM.
 
 
 ```
+
+```
+brew install slurm
+
 # Clean the Score files before each run
 ./clean.sh
 
